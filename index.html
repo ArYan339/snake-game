@@ -2,30 +2,41 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cyberpunk Snake Game with Improved Collision</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cyberpunk Snake Game</title>
     <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+        * {
+            box-sizing: border-box;
+            touch-action: none;
+        }
+        body, html {
+            height: 100%;
             margin: 0;
+            padding: 0;
+            overflow: hidden;
             background: linear-gradient(45deg, #000000, #1a1a2e, #16213e);
             font-family: 'Courier New', monospace;
             color: #00ff00;
         }
         #game-container {
-            position: relative;
-            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            padding: 20px;
         }
         #game-board {
+            width: 100%;
+            max-width: 90vmin;
+            height: auto;
+            aspect-ratio: 1 / 1;
             border: 4px solid #00ff00;
             box-shadow: 0 0 20px #00ff00, 0 0 30px #00ff00, 0 0 40px #00ff00;
         }
         #score {
-            font-size: 24px;
-            margin-top: 20px;
+            font-size: 5vmin;
+            margin-top: 3vmin;
             text-shadow: 0 0 10px #00ff00;
         }
         #game-over {
@@ -34,35 +45,71 @@
             left: 50%;
             transform: translate(-50%, -50%);
             background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
+            padding: 5vmin;
             border: 2px solid #00ff00;
-            border-radius: 10px;
+            border-radius: 3vmin;
             display: none;
+            text-align: center;
         }
         #game-over h2 {
             color: #ff0000;
-            font-size: 36px;
-            margin-bottom: 20px;
+            font-size: 8vmin;
+            margin: 0 0 3vmin;
+        }
+        #final-score {
+            font-size: 6vmin;
         }
         #restart-btn {
             background: #00ff00;
             color: #000;
             border: none;
-            padding: 10px 20px;
-            font-size: 18px;
+            padding: 3vmin 6vmin;
+            font-size: 5vmin;
             cursor: pointer;
             transition: all 0.3s;
+            margin-top: 3vmin;
         }
         #restart-btn:hover {
             background: #ff00ff;
             color: #fff;
         }
+        #touch-controls {
+            display: none;
+            width: 100%;
+            max-width: 90vmin;
+            height: 30vmin;
+            margin-top: 5vmin;
+        }
+        .touch-btn {
+            background: rgba(0, 255, 0, 0.3);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            font-size: 6vmin;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        #up-btn, #down-btn {
+            height: 100%;
+            width: 50%;
+        }
+        #left-btn, #right-btn {
+            height: 50%;
+            width: 50%;
+        }
     </style>
 </head>
 <body>
     <div id="game-container">
-        <canvas id="game-board" width="400" height="400"></canvas>
+        <canvas id="game-board"></canvas>
         <div id="score">Score: 0</div>
+        <div id="touch-controls">
+            <div id="up-btn" class="touch-btn">↑</div>
+            <div id="down-btn" class="touch-btn">↓</div>
+            <div id="left-btn" class="touch-btn">←</div>
+            <div id="right-btn" class="touch-btn">→</div>
+        </div>
         <div id="game-over">
             <h2>GAME OVER</h2>
             <p>Your Score: <span id="final-score"></span></p>
@@ -77,17 +124,38 @@
         const gameOverElement = document.getElementById('game-over');
         const finalScoreElement = document.getElementById('final-score');
         const restartBtn = document.getElementById('restart-btn');
+        const touchControls = document.getElementById('touch-controls');
 
-        const gridSize = 20;
-        const tileCount = canvas.width / gridSize;
+        let gridSize;
+        let tileCount;
+        let snake;
+        let food;
+        let dx;
+        let dy;
+        let score;
+        let gameOver;
+        let collisionPoint;
 
-        let snake = [{x: 10, y: 10}];
-        let food = {x: 15, y: 15};
-        let dx = 0;
-        let dy = 0;
-        let score = 0;
-        let gameOver = false;
-        let collisionPoint = null;
+        function initGame() {
+            const size = Math.min(window.innerWidth, window.innerHeight) * 0.9;
+            canvas.width = size;
+            canvas.height = size;
+            gridSize = Math.floor(size / 20);
+            tileCount = 20;
+
+            snake = [{x: 10, y: 10}];
+            food = {x: 15, y: 15};
+            dx = 0;
+            dy = 0;
+            score = 0;
+            gameOver = false;
+            collisionPoint = null;
+
+            if ('ontouchstart' in window) {
+                touchControls.style.display = 'flex';
+                touchControls.style.flexWrap = 'wrap';
+            }
+        }
 
         // Snake head SVG
         const snakeHeadSVG = `
@@ -136,7 +204,6 @@
         function moveSnake() {
             const head = {x: snake[0].x + dx, y: snake[0].y + dy};
             
-            // Implement wraparound
             head.x = (head.x + tileCount) % tileCount;
             head.y = (head.y + tileCount) % tileCount;
 
@@ -182,7 +249,6 @@
         function checkCollision() {
             const head = snake[0];
 
-            // Check for collision with self
             for (let i = 1; i < snake.length; i++) {
                 if (head.x === snake[i].x && head.y === snake[i].y) {
                     gameOver = true;
@@ -209,45 +275,49 @@
         }
 
         function resetGame() {
-            snake = [{x: 10, y: 10}];
-            generateFood();
-            dx = 0;
-            dy = 0;
-            score = 0;
-            gameOver = false;
-            collisionPoint = null;
+            initGame();
             gameOverElement.style.display = 'none';
         }
 
-        document.addEventListener('keydown', changeDirection);
+        function changeDirection(newDx, newDy) {
+            if (gameOver) return;
+            if ((newDx === 1 && dx === -1) || (newDx === -1 && dx === 1) ||
+                (newDy === 1 && dy === -1) || (newDy === -1 && dy === 1)) {
+                return;
+            }
+            dx = newDx;
+            dy = newDy;
+        }
 
-        function changeDirection(event) {
+        document.addEventListener('keydown', handleKeyPress);
+
+        function handleKeyPress(event) {
             const LEFT_KEY = 37;
             const RIGHT_KEY = 39;
             const UP_KEY = 38;
             const DOWN_KEY = 40;
 
-            if (gameOver) return;
-
-            const keyPressed = event.keyCode;
-
-            if (keyPressed === LEFT_KEY && dx === 0) {
-                dx = -1;
-                dy = 0;
-            }
-            if (keyPressed === UP_KEY && dy === 0) {
-                dx = 0;
-                dy = -1;
-            }
-            if (keyPressed === RIGHT_KEY && dx === 0) {
-                dx = 1;
-                dy = 0;
-            }
-            if (keyPressed === DOWN_KEY && dy === 0) {
-                dx = 0;
-                dy = 1;
+            switch (event.keyCode) {
+                case LEFT_KEY:
+                    changeDirection(-1, 0);
+                    break;
+                case UP_KEY:
+                    changeDirection(0, -1);
+                    break;
+                case RIGHT_KEY:
+                    changeDirection(1, 0);
+                    break;
+                case DOWN_KEY:
+                    changeDirection(0, 1);
+                    break;
             }
         }
+
+        // Touch controls
+        document.getElementById('left-btn').addEventListener('touchstart', () => changeDirection(-1, 0));
+        document.getElementById('up-btn').addEventListener('touchstart', () => changeDirection(0, -1));
+        document.getElementById('right-btn').addEventListener('touchstart', () => changeDirection(1, 0));
+        document.getElementById('down-btn').addEventListener('touchstart', () => changeDirection(0, 1));
 
         restartBtn.addEventListener('click', resetGame);
 
@@ -258,7 +328,9 @@
             }
         }
 
-        resetGame();
+        window.addEventListener('resize', resetGame);
+
+        initGame();
         gameLoop();
     </script>
 </body>
